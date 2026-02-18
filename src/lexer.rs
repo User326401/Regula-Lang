@@ -370,7 +370,6 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    #[inline(always)]
     fn read_identifier(&mut self) -> Result<Token, CompilerError<'_>> {
         let start_pos = self.pos;
         let mut pos = start_pos;
@@ -402,7 +401,6 @@ impl<'a> Lexer<'a> {
         Ok(Token::new(TokenType::Identifier, Span::new(start_pos, pos)))
     }
 
-    #[inline(always)]
     fn read_string(&mut self) -> Result<Token, CompilerError<'_>> {
         let start_pos = self.pos;
         let mut pos = start_pos;
@@ -456,7 +454,7 @@ impl<'a> Lexer<'a> {
         Ok(Token::new(TokenType::String, Span::new(start_pos, pos)))
     }
 
-    #[inline(always)]
+
     fn read_symbol(&mut self) -> Result<Token, CompilerError<'_>> {
         let start_pos = self.pos;
         let mut pos = start_pos;
@@ -498,7 +496,7 @@ impl<'a> Lexer<'a> {
         Ok(Token::new(symbol_type, symbol_span))
     }
 
-    #[inline(always)]
+
     fn read_number(&mut self) -> Result<Token, CompilerError<'_>> {
         let start_pos = self.pos;
         let mut pos = start_pos;
@@ -534,7 +532,6 @@ impl<'a> Lexer<'a> {
         Ok(Token::new(num_type, Span::new(start_pos, self.pos)))
     }
 
-    #[inline(always)]
     fn read_bytes(&mut self, pos: &mut usize, mask: u16) {
         let input_len = self.input_len;
 
@@ -550,7 +547,6 @@ impl<'a> Lexer<'a> {
         self.pos = *pos;
     }
 
-    #[inline(always)]
     fn read_decimal_digits(&mut self, num_type: &mut TokenType) {
         let mut pos = self.pos;
         self.read_bytes(&mut pos, CHAR_DEC_DIGIT);
@@ -573,7 +569,6 @@ impl<'a> Lexer<'a> {
         self.pos = pos;
     }
 
-    #[inline(always)]
     fn advance_char(&mut self) {
         let b = self.peek(&self.pos);
 
@@ -592,7 +587,6 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    #[inline(always)]
     fn peek_char(&mut self) -> Option<char> {
         let b = self.peek(&self.pos);
 
@@ -639,7 +633,6 @@ impl<'a> Lexer<'a> {
         unsafe { *self.input.get_unchecked(*pos) }
     }
 
-    #[inline(always)]
     fn skip_block_comment(&mut self) {
         let mut pos = self.pos;
         let input_len = self.input_len;
@@ -659,7 +652,6 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    #[inline(always)]
     fn skip_line_comment(&mut self) {
         let mut pos = self.pos;
         let input_len = self.input_len;
