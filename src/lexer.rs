@@ -384,11 +384,16 @@ impl<'a> Lexer<'a> {
             } else if (CHAR_TABLE[b as usize] & CHAR_UTF8_START) == 0 {
                 break;
             } else {
-                let c = self.peek_char().unwrap();
-                if is_xid_continue(c) {
-                    self.advance_char();
-                } else {
-                    break;
+                let c = self.peek_char();
+                match c {
+                    Some(c) => {
+                        if is_xid_continue(c) {
+                            self.advance_char();
+                        } else {
+                            break;
+                        }
+                    }
+                    None => break
                 }
             }
         }
