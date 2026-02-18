@@ -70,6 +70,12 @@ flowchart TB
 
 ## 快速使用
 
+#### 编译
+
+```bash
+cargo build --release
+```
+
 #### 启动 REPL
 
 ```bash
@@ -79,7 +85,7 @@ cargo run --release
 #### 运行源码文件
 
 ```bash
-cargo run --release run demo.rul
+cargo run --release demo.rul
 ```
 
 ## 开源协议
