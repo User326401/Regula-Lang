@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 unicode-ident = "1.0.24"
 memmap2 = "0.9.10"
+branches= "0.1"
 
 [profile.release]
 debug = 1
