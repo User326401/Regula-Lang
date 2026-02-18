@@ -102,6 +102,7 @@ fn execute(source: &str, verbose: bool) {
             }
             Err(e) => {
                 eprintln!("{}", e);
+                break;
             }
         }
     }
