@@ -9,26 +9,26 @@ pub enum ErrorKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct CompilerError {
+pub struct CompilerError<'a> {
     pub kind: ErrorKind,
     pub span: Span,
-    pub input: Vec<u8>,
+    pub input: &'a [u8],
     pub filename: String,
 }
 
-impl CompilerError {
+impl<'a> CompilerError<'a> {
     #[cold]
-    pub fn new(kind: ErrorKind, span: Span, input: &[u8], filename: &str) -> Self {
+    pub fn new(kind: ErrorKind, span: Span, input: &'a [u8], filename: &str) -> Self {
         Self {
             kind,
             span,
-            input: input.to_vec(),
+            input,
             filename: filename.to_string(),
         }
     }
 }
 #[cold]
-fn line_col(input: &Vec<u8>, pos: usize) -> (usize, usize) {
+fn line_col(input: &[u8], pos: usize) -> (usize, usize) {
     let mut line = 1;
     let mut col = 1;
     for &c in &input[..pos] {
@@ -44,14 +44,14 @@ fn line_col(input: &Vec<u8>, pos: usize) -> (usize, usize) {
 }
 
 #[cold]
-fn snippet(input: &Vec<u8>, span: Span) -> String {
+fn snippet(input: &[u8], span: Span) -> String {
     String::from_utf8_lossy(&input[span.start_pos..span.end_pos]).to_string()
 }
 #[cold]
-fn format(kind: &ErrorKind, span: Span, input: &Vec<u8>, filename: &String) -> String {
-    let (start_line, start_col) = line_col(&input, span.start_pos);
-    let (end_line, end_col) = line_col(&input, span.end_pos);
-    let msg = message(kind, span, &input);
+fn format(kind: &ErrorKind, span: Span, input: &[u8], filename: &String) -> String {
+    let (start_line, start_col) = line_col(input, span.start_pos);
+    let (end_line, end_col) = line_col(input, span.end_pos);
+    let msg = message(kind, span, input);
     format!(
         "{}:{}~{}:{}~{} {:?}: {}",
         filename, start_line, end_line, start_col, end_col, kind, msg
@@ -59,7 +59,7 @@ fn format(kind: &ErrorKind, span: Span, input: &Vec<u8>, filename: &String) -> S
 }
 
 #[cold]
-fn message(kind: &ErrorKind, span: Span, input: &Vec<u8>) -> String {
+fn message(kind: &ErrorKind, span: Span, input: &[u8]) -> String {
     let s = snippet(input, span);
 
     match kind {
@@ -85,17 +85,17 @@ impl fmt::Display for ErrorKind {
     }
 }
 
-impl Error for CompilerError {}
+impl<'a> Error for CompilerError<'a> {}
 
-impl fmt::Display for CompilerError {
+impl<'a> fmt::Display for CompilerError<'a> {
     #[cold]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
-            format(&self.kind, self.span, &self.input, &self.filename)
+            format(&self.kind, self.span, self.input, &self.filename)
         )
     }
 }
 
-pub type Result<T> = std::result::Result<T, CompilerError>;
+pub type Result<'a, T> = std::result::Result<T, CompilerError<'a>>;

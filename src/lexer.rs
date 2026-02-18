@@ -318,7 +318,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn next_token(&mut self) -> Result<Token, CompilerError> {
+    pub fn next_token(&mut self) -> Result<Token, CompilerError<'_>> {
         loop {
             let start_pos = self.pos;
             let mut pos = start_pos;
@@ -360,8 +360,8 @@ impl<'a> Lexer<'a> {
                     Err(CompilerError::new(
                         ErrorKind::UnexpectedCharacter,
                         Span::new(start_pos, self.pos),
-                        &self.input,
-                        &self.filename,
+                        self.input,
+                        self.filename,
                     ))
                 }
             } else {
@@ -371,7 +371,7 @@ impl<'a> Lexer<'a> {
     }
 
     #[inline(always)]
-    fn read_identifier(&mut self) -> Result<Token, CompilerError> {
+    fn read_identifier(&mut self) -> Result<Token, CompilerError<'_>> {
         let start_pos = self.pos;
         let mut pos = start_pos;
         let input_len = self.input_len;
@@ -398,7 +398,7 @@ impl<'a> Lexer<'a> {
     }
 
     #[inline(always)]
-    fn read_string(&mut self) -> Result<Token, CompilerError> {
+    fn read_string(&mut self) -> Result<Token, CompilerError<'_>> {
         let start_pos = self.pos;
         let mut pos = start_pos;
         let quote_mask: u16 = if self.peek_unlocked(&pos) == b'"' {
@@ -428,22 +428,22 @@ impl<'a> Lexer<'a> {
                 return Err(CompilerError::new(
                     ErrorKind::UnclosedString,
                     Span::new(start_pos, pos),
-                    &self.input,
-                    &self.filename,
+                    self.input,
+                    self.filename,
                 ));
             }
 
             pos += 1;
         }
 
-        if !(pos >= input_len - 1) {
+        if pos < input_len - 1  {
             pos += 1;
         } else {
             return Err(CompilerError::new(
                 ErrorKind::UnclosedString,
                 Span::new(start_pos, pos),
-                &self.input,
-                &self.filename,
+                self.input,
+                self.filename,
             ));
         }
 
@@ -452,7 +452,7 @@ impl<'a> Lexer<'a> {
     }
 
     #[inline(always)]
-    fn read_symbol(&mut self) -> Result<Token, CompilerError> {
+    fn read_symbol(&mut self) -> Result<Token, CompilerError<'_>> {
         let start_pos = self.pos;
         let mut pos = start_pos;
         let b = self.peek_unlocked(&pos);
@@ -476,16 +476,16 @@ impl<'a> Lexer<'a> {
                 return Err(CompilerError::new(
                     ErrorKind::UnexpectedCharacter,
                     Span::new(start_pos, start_pos),
-                    &self.input,
-                    &self.filename,
+                    self.input,
+                    self.filename,
                 ));
             }
         } else {
             return Err(CompilerError::new(
                 ErrorKind::UnexpectedCharacter,
                 Span::new(start_pos, start_pos),
-                &self.input,
-                &self.filename,
+                self.input,
+                self.filename,
             ));
         }
 
@@ -494,7 +494,7 @@ impl<'a> Lexer<'a> {
     }
 
     #[inline(always)]
-    fn read_number(&mut self) -> Result<Token, CompilerError> {
+    fn read_number(&mut self) -> Result<Token, CompilerError<'_>> {
         let start_pos = self.pos;
         let mut pos = start_pos;
         let mut num_type = TokenType::Int;
@@ -534,7 +534,7 @@ impl<'a> Lexer<'a> {
         let input_len = self.input_len;
 
         while *pos < input_len {
-            let b = self.peek_unlocked(&pos);
+            let b = self.peek_unlocked(pos);
             if (CHAR_TABLE[b as usize] & mask) != 0 {
                 advance(pos, 1)
             } else {
