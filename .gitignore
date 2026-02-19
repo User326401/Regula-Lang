@@ -1,5 +1,7 @@
 /target
 .idea
+.venv
+tools
 
 perf.data
 perf.data.old
