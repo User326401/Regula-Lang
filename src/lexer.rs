@@ -301,6 +301,82 @@ const SYMBOL_LOOKUP: [SymbolRule; 128] = {
     array
 };
 
+const KEYWORD_TABLE_SIZE: usize = 61;
+const KEYWORD_TABLE: [(Option<TokenType>, &'static [u8]); KEYWORD_TABLE_SIZE] = [
+    (None, b""),
+    (Some(TokenType::Enum), b"enum"),
+    (Some(TokenType::Mut), b"mut"),
+    (Some(TokenType::For), b"for"),
+    (None, b""),
+    (Some(TokenType::Impl), b"impl"),
+    (Some(TokenType::Return), b"return"),
+    (Some(TokenType::Match), b"match"),
+    (None, b""),
+    (Some(TokenType::Struct), b"struct"),
+    (Some(TokenType::False), b"false"),
+    (None, b""),
+    (None, b""),
+    (Some(TokenType::If), b"if"),
+    (Some(TokenType::Break), b"break"),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (Some(TokenType::In), b"in"),
+    (None, b""),
+    (Some(TokenType::Import), b"import"),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (Some(TokenType::Func), b"func"),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (Some(TokenType::Let), b"let"),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (Some(TokenType::Loop), b"loop"),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (Some(TokenType::Const), b"const"),
+    (Some(TokenType::Continue), b"continue"),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (Some(TokenType::True), b"true"),
+    (Some(TokenType::While), b"while"),
+    (None, b""),
+    (None, b""),
+    (None, b""),
+    (Some(TokenType::Else), b"else"),
+    (None, b""),
+];
+
+const KEYWORD_MAX_LEN: usize = 8;
+#[inline(always)]
+fn hash(bytes: &[u8]) -> usize {
+    let mut h: usize = 0;
+    for b in bytes {
+        h = h * 16 + (*b as usize)
+    };
+
+    h % KEYWORD_TABLE_SIZE
+}
+
 #[derive(Debug)]
 pub struct Lexer<'a> {
     input: &'a [u8],
@@ -334,14 +410,15 @@ impl<'a> Lexer<'a> {
 
             // skip comment
             if b == b'/' {
-                advance(&mut pos, 1);
+                self.advance(&mut pos, 1);
                 if self.peek(&pos) == Some(b'/') {
-                    advance(&mut pos, 1);
+                    self.advance(&mut pos, 1);
                     self.skip_line_comment();
                 } else if unlikely(self.peek(&pos) == Some(b'*')) {
-                    advance(&mut pos, 1);
+                    self.advance(&mut pos, 1);
                     self.skip_block_comment();
                 } else {
+                    self.pos = pos;
                     return Ok(Token::new(TokenType::Slash, Span::new(start_pos, pos)));
                 }
 
@@ -364,10 +441,10 @@ impl<'a> Lexer<'a> {
                     self.read_identifier()
                 } else {
                     if unlikely(true) {
-                        self.advance_char();
+                        self.advance_char(&mut pos);
                         return Err(CompilerError::new(
                             ErrorKind::UnexpectedCharacter,
-                            Span::new(start_pos, self.pos),
+                            Span::new(start_pos, pos),
                             self.input,
                             self.filename,
                         ));
@@ -379,25 +456,45 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn lookup_keyword(&self, span: Span) -> TokenType {
+        let bytes = &self.input[span.start_pos..span.end_pos];
+        let h = hash(bytes);
+
+        if bytes.len() > KEYWORD_MAX_LEN || unlikely((CHAR_TABLE[bytes[0] as usize] & CHAR_UTF8_START) != 0) {
+            return TokenType::Identifier
+        }
+
+        if let (Some(token_type), expected_bytes) = unsafe { KEYWORD_TABLE.get_unchecked(h) } {
+            if likely(bytes == *expected_bytes) {
+                *token_type
+            } else {
+                TokenType::Identifier
+            }
+        } else {
+            TokenType::Identifier
+        }
+    }
+
     fn read_identifier(&mut self) -> Result<Token, CompilerError<'_>> {
         let start_pos = self.pos;
         let mut pos = start_pos;
         let input_len = self.input_len;
-        self.advance_char();
+        self.advance_char(&mut pos);
 
         while likely(pos < input_len) {
             let b = self.peek_unlocked(&pos);
             if (CHAR_TABLE[b as usize] & CHAR_ASCII_ID_CONTINUE) != 0 {
-                advance(&mut pos, 1);
+                self.advance(&mut pos, 1);
             } else if (CHAR_TABLE[b as usize] & CHAR_UTF8_START) == 0 {
-                break;
+                 break;
             } else {
                 if unlikely(true) {
                     let c = self.peek_char();
                     match c {
                         Some(c) => {
                             if is_xid_continue(c) {
-                                self.advance_char();
+                                self.advance_char(&mut pos);
+                                continue;
                             } else {
                                 break;
                             }
@@ -411,7 +508,8 @@ impl<'a> Lexer<'a> {
         }
 
         self.pos = pos;
-        Ok(Token::new(TokenType::Identifier, Span::new(start_pos, pos)))
+        let span = Span::new(start_pos, pos);
+        Ok(Token::new(self.lookup_keyword(span), span))
     }
 
     fn read_string(&mut self) -> Result<Token, CompilerError<'_>> {
@@ -422,7 +520,7 @@ impl<'a> Lexer<'a> {
         } else {
             CHAR_SINGLE_QUOTE
         };
-        advance(&mut pos, 1);
+        self.advance(&mut pos, 1);
 
         let input_len = self.input.len();
 
@@ -431,17 +529,17 @@ impl<'a> Lexer<'a> {
             let mask = CHAR_TABLE[b as usize];
 
             if likely((mask & (quote_mask | CHAR_NEWLINE_AND_ESCAPE)) == 0) {
-                advance(&mut pos, 1);
+                self.advance(&mut pos, 1);
                 continue;
             }
 
             if unlikely((mask & quote_mask) != 0) {
-                advance(&mut pos, 1);
+                self.advance(&mut pos, 1);
                 break;
             }
 
             if unlikely((mask & CHAR_ESCAPE) != 0) {
-                advance(&mut pos, 2);
+                self.advance(&mut pos, 2);
                 continue;
             }
 
@@ -473,7 +571,7 @@ impl<'a> Lexer<'a> {
         let mut pos = start_pos;
         let b = self.peek_unlocked(&pos);
 
-        advance(&mut pos, 1);
+        self.advance(&mut pos, 1);
 
         let symbol_info = &SYMBOL_LOOKUP[b as usize];
 
@@ -510,7 +608,7 @@ impl<'a> Lexer<'a> {
         let mut num_type = TokenType::Int;
 
         if self.peek_unlocked(&pos) == b'0' {
-            advance(&mut pos, 1);
+            self.advance(&mut pos, 1);
             let can_peek_next = unlikely(pos < self.input_len - 1 );
             if unlikely(!can_peek_next) {
                 return Ok(Token::new(TokenType::Int, Span::new(start_pos, self.pos)));
@@ -518,15 +616,15 @@ impl<'a> Lexer<'a> {
 
             match self.peek_unlocked(&pos) {
                 b'b' | b'B' => {
-                    advance(&mut pos, 1);
+                    self.advance(&mut pos, 1);
                     self.read_bytes(&mut pos, CHAR_BIN_DIGIT);
                 }
                 b'o' | b'O' => {
-                    advance(&mut pos, 1);
+                    self.advance(&mut pos, 1);
                     self.read_bytes(&mut pos, CHAR_OCT_DIGIT);
                 }
                 b'x' | b'X' => {
-                    advance(&mut pos, 1);
+                    self.advance(&mut pos, 1);
                     self.read_bytes(&mut pos, CHAR_HEX_DIGIT);
                 }
                 _ => {
@@ -549,7 +647,7 @@ impl<'a> Lexer<'a> {
         while likely(*pos < input_len) {
             let b = self.peek_unlocked(pos);
             if (CHAR_TABLE[b as usize] & mask) != 0 {
-                advance(pos, 1)
+                self.advance(pos, 1)
             } else {
                 break;
             }
@@ -564,15 +662,15 @@ impl<'a> Lexer<'a> {
 
         if unlikely(self.peek(&pos) == Some(b'.')) {
             *num_type = TokenType::Float;
-            advance(&mut pos, 1);
+            self.advance(&mut pos, 1);
             self.read_bytes(&mut pos, CHAR_DEC_DIGIT);
         }
 
         if unlikely(matches!(self.peek(&pos), Some(b'e' | b'E'))) {
             *num_type = TokenType::Float;
-            advance(&mut pos, 1);
+            self.advance(&mut pos, 1);
             if matches!(self.peek(&pos), Some(b'+' | b'-')) {
-                advance(&mut pos, 1);
+                self.advance(&mut pos, 1);
             }
             self.read_bytes(&mut pos, CHAR_DEC_DIGIT);
         }
@@ -580,7 +678,7 @@ impl<'a> Lexer<'a> {
         self.pos = pos;
     }
 
-    fn advance_char(&mut self) {
+    fn advance_char(&mut self, pos: &mut usize) {
         let b = self.peek(&self.pos);
 
         if let Some(byte) = b {
@@ -594,7 +692,7 @@ impl<'a> Lexer<'a> {
                     byte as char, self.pos
                 ),
             };
-            advance(&mut self.pos, len);
+            self.advance(pos, len);
         }
     }
 
@@ -650,6 +748,11 @@ impl<'a> Lexer<'a> {
         unsafe { *self.input.get_unchecked(*pos) }
     }
 
+    #[inline(always)]
+    fn advance(&self, pos: &mut usize, n: usize) {
+        *pos += n;
+    }
+
     fn skip_block_comment(&mut self) {
         let mut pos = self.pos;
         let input_len = self.input_len;
@@ -657,14 +760,14 @@ impl<'a> Lexer<'a> {
         while likely(pos < input_len) {
             match self.peek_unlocked(&pos) {
                 b'*' => {
-                    advance(&mut pos, 1);
+                    self.advance(&mut pos, 1);
                     if unlikely(self.peek(&pos) == Some(b'/')) {
-                        advance(&mut pos, 1);
+                        self.advance(&mut pos, 1);
                         break;
                     }
                 }
                 _ => {
-                    advance(&mut pos, 1);
+                    self.advance(&mut pos, 1);
                 }
             }
         }
@@ -678,14 +781,9 @@ impl<'a> Lexer<'a> {
             match self.peek_unlocked(&pos) {
                 b'\n' => break,
                 _ => {
-                    advance(&mut pos, 1);
+                    self.advance(&mut pos, 1);
                 }
             }
         }
     }
-}
-
-#[inline(always)]
-fn advance(pos: &mut usize, n: usize) {
-    *pos += n;
 }
