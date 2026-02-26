@@ -10,6 +10,11 @@ pub enum TokenType {
     Float,
     String,
 
+    TypeInt,     // int
+    TypeFloat,   // float
+    TypeString,  // str
+    TypeBoolean, // bool
+
     Assign, // =
     Plus,   // +
     Minus,  // -
@@ -71,6 +76,8 @@ pub enum TokenType {
 
     True,  // true
     False, // false
+
+    None, // None
 
     Eof,
 }

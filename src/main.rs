@@ -1,14 +1,15 @@
+use memmap2::Mmap;
 use std::fs::File;
 use std::io::{self, BufRead, Write};
 use std::path::Path;
-use memmap2::Mmap;
 use std::time::Instant;
 
-use regula_project::{Lexer, TokenType};
+use regula_project::{Lexer, Parser, Token, TokenType};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let filtered_args: Vec<String> = args.iter()
+    let filtered_args: Vec<String> = args
+        .iter()
         .filter(|s| s.as_str() != "-v")
         .cloned()
         .collect();
@@ -38,7 +39,7 @@ fn run_repl(verbose: bool) {
         let mut line = String::new();
         if stdin.lock().read_line(&mut line).is_err() {
             println!();
-            break
+            break;
         }
         let line = line.trim();
         if line == "exit" {
@@ -85,25 +86,38 @@ fn run_file(filename: &str, verbose: bool) {
 fn execute(source: &str, verbose: bool) {
     let start = Instant::now();
 
-    let line_bytes = source.as_bytes();
-    let mut lexer = Lexer::new("<stdin>", line_bytes);
+    let source_bytes = source.as_bytes();
+    let mut lexer = Lexer::new(String::from("<stdin>"), source_bytes);
+    let mut tokens: Vec<Token> = vec![];
     loop {
         let token = lexer.next_token();
         match token {
             Ok(tok) => {
-                if !verbose {
-                    let s: &[u8] = &line_bytes[tok.span.start_pos..tok.span.end_pos];
-                    println!("{:?}, Literal: {:?}", tok, std::str::from_utf8(s)
-                        .unwrap()
-                        .to_string());
+                if tok.token_type == TokenType::Eof {
+                    tokens.push(tok);
+                    break;
                 }
 
-                if tok.token_type == TokenType::Eof { break; }
+                tokens.push(tok);
             }
             Err(e) => {
                 eprintln!("{}", e);
-                break;
+                return;
             }
+        }
+    }
+
+    let mut parser = Parser::new(&tokens, source_bytes, String::from("<stdin>"));
+    let ast = parser.parse();
+    match ast {
+        Ok(ast) => {
+            if !verbose {
+                println!("{:#?}", ast)
+            }
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            return;
         }
     }
 

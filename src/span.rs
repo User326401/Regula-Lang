@@ -1,20 +1,20 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
-    pub start_pos: usize,
-    pub end_pos: usize,
+    pub start: usize,
+    pub end: usize,
 }
 
 impl Span {
     #[inline(always)]
     pub fn merge(self, other: Self) -> Self {
         Self {
-            start_pos: self.start_pos.min(other.start_pos),
-            end_pos: self.end_pos.max(other.end_pos),
+            start: self.start.min(other.start),
+            end: self.end.max(other.end),
         }
     }
 
     #[inline(always)]
-    pub fn new(start_pos: usize, end_pos: usize) -> Self {
-        Self { start_pos, end_pos }
+    pub fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
     }
 }

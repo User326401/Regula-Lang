@@ -5,43 +5,73 @@ use crate::span::Span;
 pub enum Expr {
     Literal {
         lit: Literal,
-        span: Span
+        span: Span,
     },
 
     Ident {
         name: String,
-        span: Span
+        span: Span,
     },
     Binary {
         op: BinOp,
         left: Box<Expr>,
         right: Box<Expr>,
-        span: Span
+        span: Span,
     },
 
     Unary {
         op: UnaryOp,
         expr: Box<Expr>,
-        span: Span
+        span: Span,
     },
 
     Assign {
         target: Box<Expr>,
         value: Box<Expr>,
-        span: Span
+        span: Span,
     },
 
     Block {
         exprs: Vec<Expr>,
-        span: Span
+        span: Span,
     },
 
     Let {
         target: Box<Expr>,
-        kind: Option<Type>,
+        kind: Type,
         init: Option<Box<Expr>>,
-        span: Span
+        span: Span,
+    },
+
+    Const {
+        target: Box<Expr>,
+        kind: Type,
+        value: Box<Expr>,
+        span: Span,
+    },
+}
+
+impl Expr {
+    #[inline(always)]
+    pub fn span(&self) -> &Span {
+        match self {
+            Expr::Literal { span, .. } => span,
+            Expr::Ident { span, .. } => span,
+            Expr::Binary { span, .. } => span,
+            Expr::Unary { span, .. } => span,
+            Expr::Assign { span, .. } => span,
+            Expr::Block { span, .. } => span,
+            Expr::Let { span, .. } => span,
+            Expr::Const { span, .. } => span,
+        }
     }
+}
+
+#[derive(Debug)]
+pub struct Program {
+    pub body: Expr,
+    pub filename: String,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -50,7 +80,7 @@ pub enum Literal {
     Float(f64),
     String(String),
     Bool(bool),
-    None
+    None,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -81,12 +111,13 @@ pub enum UnaryOp {
     Neg, // -
     Not, // !
 
-    // Pos // + (unary plus) -Omitted, as it is semantically redundant (+x = x),
-    // and has no effect on the expression value
+         // Pos // + (unary plus) -Omitted, as it is semantically redundant (+x = x),
+         // and has no effect on the expression value
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
+    Auto,
     Int,
     Float,
     Bool,
